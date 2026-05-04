@@ -164,6 +164,11 @@ export default function ProfilePage() {
     if (!roleString) return "Guest";
     if (roleString === "CAPTAIN") return "Barangay Captain";
     if (roleString === "COUNCILOR") return "Barangay Councilor";
+    if (roleString === "SECRETARY") return "Barangay Secretary";
+    if (roleString === "TREASURER") return "Barangay Treasurer";
+    if (roleString === "KAGAWAD") return "Barangay Kagawad";
+    if (roleString === "ENCODER") return "Barangay Encoder";
+    if (roleString === "OFFICIAL") return "Barangay Official";
     return roleString.charAt(0).toUpperCase() + roleString.slice(1).toLowerCase();
   };
 
@@ -371,7 +376,11 @@ export default function ProfilePage() {
                       className={`${inputClass} appearance-none cursor-pointer`}
                     >
                       <option value="CAPTAIN">Barangay Captain</option>
-                      <option value="COUNCILOR">Barangay Councilor</option>
+                      <option value="SECRETARY">Barangay Secretary</option>
+                      <option value="TREASURER">Barangay Treasurer</option>
+                      <option value="KAGAWAD">Barangay Kagawad</option>
+                      <option value="ENCODER">Barangay Encoder</option>
+                      <option value="OFFICIAL">Other Barangay Official</option>
                       <option value="GUEST">Guest</option>
                     </select>
                   </div>

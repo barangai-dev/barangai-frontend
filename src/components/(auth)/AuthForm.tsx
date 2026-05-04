@@ -639,6 +639,11 @@ export default function AuthForm() {
                                 <label className="block text-[10px] font-medium uppercase tracking-wide mb-0 opacity-90">Role</label>
                                 <select value={sRole} onChange={(e) => setSRole(e.target.value)} className={inputClass}>
                                   <option value="CAPTAIN">Barangay Captain</option>
+                                  <option value="COUNCILOR">Barangay Councilor</option>
+                                  <option value="SECRETARY">Barangay Secretary</option>
+                                  <option value="TREASURER">Barangay Treasurer</option>
+                                  <option value="KAGAWAD">Barangay Kagawad</option>
+                                  <option value="ENCODER">Barangay Encoder</option>
                                   <option value="OFFICIAL">Barangay Official</option>
                                 </select>
                               </div>

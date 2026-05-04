@@ -320,13 +320,32 @@ export default function AdminDashboard() {
   const tableDivide = isDark ? "divide-white/5" : "divide-gray-100";
 
   /* ── shared components ── */
-  const RoleBadge = ({ role }: { role?: string }) => (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${role === "CAPTAIN"
-      ? (isDark ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-green-100 text-green-800")
-      : (isDark ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "bg-blue-100 text-blue-800")}`}>
-      {role ?? "—"}
-    </span>
-  );
+    const RoleBadge = ({ role }: { role?: string }) => {
+    // Format the text nicely for the table
+    const formattedRole = role ? (
+      {
+        ADMIN: "Admin",
+        CAPTAIN: "Barangay Captain",
+        SECRETARY: "Barangay Secretary",
+        TREASURER: "Barangay Treasurer",
+        KAGAWAD: "Barangay Kagawad",
+        ENCODER: "Barangay Encoder",
+        OFFICIAL: "Barangay Official",
+        GUEST: "Guest"
+      }[role.toUpperCase()] || role
+    ) : "—";
+
+    // Keep Captains and Admins Green, make everyone else Blue
+    const isHighLevel = role === "CAPTAIN" || role === "ADMIN";
+
+    return (
+      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${isHighLevel
+        ? (isDark ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-green-100 text-green-800")
+        : (isDark ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" : "bg-blue-100 text-blue-800")}`}>
+        {formattedRole}
+      </span>
+    );
+  };
 
   const THead = ({ cols }: { cols: string[] }) => (
     <thead>
