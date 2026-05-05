@@ -82,6 +82,11 @@ export default function ProfilePage() {
     ? "w-full py-2 px-3 rounded-xl border border-white/10 bg-white/5 text-[13px] outline-none transition focus:border-accentGreen/60 focus:ring-1 focus:ring-accentGreen/25"
     : "w-full py-2 px-3 rounded-xl border border-gray-200 bg-white text-[13px] outline-none transition focus:border-black/25 focus:ring-1 focus:ring-black/10";
 
+  const selectClass = `${inputClass} appearance-none cursor-pointer ${
+    isDark ? "text-white" : "text-black"
+  }`;
+  const optionClass = isDark ? "bg-[#0b1414] text-white" : "bg-white text-black";
+
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus(null);
@@ -373,15 +378,15 @@ export default function ProfilePage() {
                     <select 
                       value={role} 
                       onChange={(e) => setRole(e.target.value)} 
-                      className={`${inputClass} appearance-none cursor-pointer`}
+                      className={selectClass}
                     >
-                      <option value="CAPTAIN">Barangay Captain</option>
-                      <option value="SECRETARY">Barangay Secretary</option>
-                      <option value="TREASURER">Barangay Treasurer</option>
-                      <option value="KAGAWAD">Barangay Kagawad</option>
-                      <option value="ENCODER">Barangay Encoder</option>
-                      <option value="OFFICIAL">Other Barangay Official</option>
-                      <option value="GUEST">Guest</option>
+                      <option className={optionClass} value="CAPTAIN">Barangay Captain</option>
+                      <option className={optionClass} value="SECRETARY">Barangay Secretary</option>
+                      <option className={optionClass} value="TREASURER">Barangay Treasurer</option>
+                      <option className={optionClass} value="KAGAWAD">Barangay Kagawad</option>
+                      <option className={optionClass} value="ENCODER">Barangay Encoder</option>
+                      <option className={optionClass} value="OFFICIAL">Other Barangay Official</option>
+                      <option className={optionClass} value="GUEST">Guest</option>
                     </select>
                   </div>
 

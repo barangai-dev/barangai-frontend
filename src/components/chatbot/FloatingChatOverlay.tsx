@@ -10,7 +10,7 @@ import { ChatSection } from "@/components/chatbot/ChatBot";
 const STORAGE_KEY = "floating_chat_overlay_open";
 
 function isSupportedRoute(pathname: string) {
-  if (pathname === "/dashboard" || pathname === "/quizzes" || pathname === "/courses") {
+  if (pathname === "/dashboard" || pathname === "/quizzes" || pathname === "/activities" || pathname === "/courses") {
     return true;
   }
 

@@ -41,7 +41,7 @@ export default function Sidebar({ collapsed = false, onToggle }: Props) {
     { label: "Dashboard", href: "/dashboard", icon: HiHome },
     { label: "Chatbot", href: "/chatbot", icon: HiChat },
     { label: "Courses", href: "/courses", icon: HiBookOpen },
-    { label: "Quizzes", href: "/quizzes", icon: HiClipboardList },
+    { label: "Activities", href: "/activities", icon: HiClipboardList },
     { label: "Statistics", href: "/statistics", icon: HiChartBar },
     { label: "Settings", href: "/settings", icon: HiCog },
   ];

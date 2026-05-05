@@ -244,18 +244,18 @@ export default function CourseDetailPage() {
     return `/courses/topic/${encodeURIComponent(topic)}`;
   }, [lesson?.topic]);
 
-  // Quiz link — navigates to /quizzes with topic pre-selected
+  // Activities link — navigates to /activities with topic pre-selected
   const quizHref = useMemo(() => {
     const topic = (lesson?.topic || "").trim();
     const lessonTitle = (lesson?.title || "").trim();
-    if (!topic && !lessonTitle) return "/quizzes";
+    if (!topic && !lessonTitle) return "/activities";
 
     // Pass multiple selectors so QuizPage can resolve the exact quiz robustly.
     const params = new URLSearchParams();
     if (topic) params.set("topic", topic);
     params.set("lessonId", String(courseId));
     if (lessonTitle) params.set("lessonTitle", lessonTitle);
-    return `/quizzes?${params.toString()}`;
+    return `/activities?${params.toString()}`;
   }, [lesson?.topic, lesson?.title, courseId]);
 
   const handleCompleteCourse = async () => {

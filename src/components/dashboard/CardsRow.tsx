@@ -279,7 +279,7 @@ export default function CardsRow() {
               )}
             </div>
             <Link 
-              href="/quizzes" 
+              href="/activities" 
               className={`shrink-0 text-sm font-semibold flex items-center gap-1 transition-colors ${isDark ? "text-blue-300 hover:text-blue-200" : "text-blue-600 hover:text-blue-800"}`}
             >
               View More <ArrowRight size={16} />
@@ -315,7 +315,7 @@ export default function CardsRow() {
 
                 <div className="mt-5">
                   <Link
-                    href={`/quizzes?topic=${encodeURIComponent(quiz.topic)}&lessonId=${quiz.id}`}
+                    href={`/activities?topic=${encodeURIComponent(quiz.topic)}&lessonId=${quiz.id}`}
                     className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-colors ${
                       isDark 
                         ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/20" 

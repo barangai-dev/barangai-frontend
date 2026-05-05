@@ -1,13 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { API_BASE_URL } from "@/lib/auth";
+import { ActivityType, createActivity, deleteActivity, fetchAllActivities, fetchPendingSubmissions, updateActivity } from "@/lib/activities";
 import { useTheme } from "@/context/theme";
 import Sidebar from "@/components/dashboard/Sidebar";
 import TopBar from "@/components/dashboard/TopBar";
 import {
   Check, X, Trash2, Search, RefreshCw, AlertCircle, Users,
-  BookOpen, ClipboardList, Plus, Pencil, BarChart3, ChevronLeft, Settings
+  BookOpen, ClipboardList, Plus, Pencil, BarChart3, ChevronLeft, Settings, FileText
 } from "lucide-react";
 
 // ... (keep all your existing types: UserStats, UserItem, QuestionInput) ...
@@ -74,7 +76,7 @@ export default function AdminDashboard() {
   const isDark = theme === "dark";
 
   // Added "settings" to the activeTab options
-  const [activeTab, setActiveTab] = useState<"users" | "courses" | "quizzes" | "tracking" | "settings">("users");
+  const [activeTab, setActiveTab] = useState<"users" | "courses" | "quizzes" | "tasks" | "tracking" | "settings">("users");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   
   // Banner state
@@ -117,9 +119,19 @@ export default function AdminDashboard() {
   const [creatingQuiz, setCreatingQuiz] = useState(false);
   const [quizMsg, setQuizMsg] = useState("");
   const [adminLessons, setAdminLessons] = useState<any[]>([]);
+  const [tasksList, setTasksList] = useState<any[]>([]);
+  const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
+  const [taskLessonId, setTaskLessonId] = useState("");
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskContent, setTaskContent] = useState("");
+  const [taskUrl, setTaskUrl] = useState("");
+  const [taskType, setTaskType] = useState<ActivityType>("IMAGE");
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskMsg, setTaskMsg] = useState("");
 
   const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
   const [trackingQuery, setTrackingQuery] = useState("");
+  const [pendingActivityCount, setPendingActivityCount] = useState(0);
 
   const handleSidebarToggle = () => {
     const next = !sidebarCollapsed;
@@ -178,6 +190,12 @@ export default function AdminDashboard() {
         setPendingUsers(mapped.filter((x) => !isUserExplicitlyApproved(x)));
         setLastRefreshed(new Date().toLocaleString());
       }
+      try {
+        const pending = await fetchPendingSubmissions();
+        setPendingActivityCount(pending.length);
+      } catch {
+        setPendingActivityCount(0);
+      }
     } catch {
       setError("Unable to load users from server.");
     } finally { setLoading(false); }
@@ -186,7 +204,7 @@ export default function AdminDashboard() {
   useEffect(() => { fetchPending(); }, []);
 
   useEffect(() => {
-    if (activeTab !== "courses" && activeTab !== "quizzes") return;
+    if (activeTab !== "courses" && activeTab !== "quizzes" && activeTab !== "tasks") return;
     (async () => {
       setLoading(true); setError(null);
       try {
@@ -203,6 +221,10 @@ export default function AdminDashboard() {
           if (!qr.ok) throw new Error("Failed to fetch quizzes");
           const qd = await qr.json();
           setQuizzesList(Array.isArray(qd) ? qd : qd.results || []);
+        }
+        if (activeTab === "tasks") {
+          const activities = await fetchAllActivities();
+          setTasksList(activities);
         }
       } catch (err: any) { setError(err.message); } finally { setLoading(false); }
     })();
@@ -295,6 +317,69 @@ export default function AdminDashboard() {
     } catch (err: any) { setError(err.message); } finally { setLoading(false); }
   };
 
+  const handleStartEditTask = (task: any) => {
+    setEditingTaskId(task.id);
+    setTaskLessonId(task.lesson ? String(task.lesson) : "");
+    setTaskTitle(task.title || "");
+    setTaskContent(task.content || "");
+    setTaskUrl(task.url || "");
+    setTaskType((task.activity_type || "IMAGE") as ActivityType);
+    setTaskMsg("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const cancelTaskEdit = () => {
+    setEditingTaskId(null);
+    setTaskLessonId("");
+    setTaskTitle("");
+    setTaskContent("");
+    setTaskUrl("");
+    setTaskType("IMAGE");
+    setTaskMsg("");
+  };
+
+  const handleSaveTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingTask(true);
+    setTaskMsg("");
+    try {
+      const payload = {
+        lesson: parseInt(taskLessonId, 10),
+        title: taskTitle,
+        content: taskContent,
+        url: taskUrl || undefined,
+        activity_type: taskType,
+      };
+      if (editingTaskId !== null) {
+        await updateActivity(editingTaskId, payload);
+        setTaskMsg("Task updated successfully! ✅");
+      } else {
+        await createActivity(payload);
+        setTaskMsg("Task created successfully! ✅");
+      }
+      cancelTaskEdit();
+      const refreshed = await fetchAllActivities();
+      setTasksList(refreshed);
+    } catch (err: any) {
+      setTaskMsg("Error: " + (err?.message || "Failed to save task"));
+    } finally {
+      setCreatingTask(false);
+    }
+  };
+
+  const handleDeleteTask = async (id: number) => {
+    if (!window.confirm("Delete this task? This cannot be undone.")) return;
+    setLoading(true);
+    try {
+      await deleteActivity(id);
+      setTasksList((prev) => prev.filter((task) => task.id !== id));
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchUserDetails = async (user: UserItem) => {
     setLoading(true); setError(null);
     try {
@@ -376,6 +461,7 @@ export default function AdminDashboard() {
     { key: "users" as const, icon: Users, label: "Users" },
     { key: "courses" as const, icon: BookOpen, label: "Courses" },
     { key: "quizzes" as const, icon: ClipboardList, label: "Quizzes" },
+    { key: "tasks" as const, icon: FileText, label: "Tasks" },
     { key: "tracking" as const, icon: BarChart3, label: "Tracking" },
     { key: "settings" as const, icon: Settings, label: "Settings" },
   ];
@@ -394,11 +480,24 @@ export default function AdminDashboard() {
               <h1 className="text-2xl font-bold">Admin Dashboard</h1>
               <p className={`text-sm mt-0.5 ${muted}`}>Manage users, courses, quizzes & tracking</p>
             </div>
-            <button onClick={fetchPending} disabled={loading}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition disabled:opacity-50 border ${isDark ? "bg-white/6 hover:bg-white/12 text-white border-white/10" : "bg-white hover:bg-gray-50 text-black border-gray-200 shadow-sm"}`}>
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-              Refresh
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/activities"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition border ${isDark ? "bg-accentGreen text-black border-accentGreen/60" : "bg-brandGreen text-white border-brandGreen/60"}`}
+              >
+                Activity Queue
+                {pendingActivityCount > 0 && (
+                  <span className={`inline-flex min-w-5 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isDark ? "bg-black/80 text-accentGreen" : "bg-white text-brandGreen"}`}>
+                    {pendingActivityCount}
+                  </span>
+                )}
+              </Link>
+              <button onClick={fetchPending} disabled={loading}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition disabled:opacity-50 border ${isDark ? "bg-white/6 hover:bg-white/12 text-white border-white/10" : "bg-white hover:bg-gray-50 text-black border-gray-200 shadow-sm"}`}>
+                <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+                Refresh
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -409,6 +508,11 @@ export default function AdminDashboard() {
                   ? (isDark ? "text-accentGreen" : "text-brandGreen")
                   : (isDark ? "text-zinc-400 hover:text-zinc-200" : "text-gray-500 hover:text-gray-700")}`}>
                 <Icon size={15} />{label}
+                {key === "tracking" && pendingActivityCount > 0 && (
+                  <span className={`inline-flex min-w-5 justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${isDark ? "bg-accentGreen/20 text-accentGreen" : "bg-brandGreen/15 text-brandGreen"}`}>
+                    {pendingActivityCount}
+                  </span>
+                )}
                 {activeTab === key && <span className={`absolute bottom-0 left-0 right-0 h-0.5 ${isDark ? "bg-accentGreen" : "bg-brandGreen"}`} />}
               </button>
             ))}
@@ -689,6 +793,91 @@ export default function AdminDashboard() {
                             <div className="inline-flex gap-1.5">
                               <button onClick={() => handleStartEditQuiz(q)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}><Pencil size={12} />Edit</button>
                               <button onClick={() => handleDeleteQuiz(q.id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-red-500/15 text-red-400 hover:bg-red-500/25" : "bg-red-100 text-red-700 hover:bg-red-200"}`}><Trash2 size={12} />Delete</button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ════ TASKS ════ */}
+          {activeTab === "tasks" && (
+            <div className="space-y-4">
+              <div className={`${sectionCard} p-6`}>
+                <h2 className="text-base font-semibold mb-4">{editingTaskId ? "Edit Task" : "New Task"}</h2>
+                <form onSubmit={handleSaveTask} className="space-y-4 max-w-3xl">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${muted}`}>Task Title</label>
+                      <input required value={taskTitle} onChange={e => setTaskTitle(e.target.value)} className={inputCls} placeholder="e.g. Barangay Budget Chart" />
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${muted}`}>Linked Course</label>
+                      <select required value={taskLessonId} onChange={e => setTaskLessonId(e.target.value)} className={`${inputCls} appearance-none`}>
+                        <option value="" disabled>Select a course</option>
+                        {adminLessons.map(l => <option key={l.id} value={l.id}>{l.title}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${muted}`}>Task Type</label>
+                      <select value={taskType} onChange={e => setTaskType(e.target.value as ActivityType)} className={`${inputCls} appearance-none`}>
+                        <option value="IMAGE">IMAGE</option>
+                        <option value="TEXT">TEXT</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={`block text-xs font-semibold mb-1.5 ${muted}`}>Resource URL (optional)</label>
+                      <input value={taskUrl} onChange={e => setTaskUrl(e.target.value)} className={inputCls} placeholder="https://youtube.com/..." />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={`block text-xs font-semibold mb-1.5 ${muted}`}>Instructions</label>
+                    <textarea required value={taskContent} onChange={e => setTaskContent(e.target.value)} rows={4} className={`${inputCls} resize-none`} placeholder="Tell users what to do for this task..." />
+                  </div>
+
+                  <MsgBanner msg={taskMsg} />
+                  <div className="flex gap-2">
+                    <button disabled={creatingTask} type="submit"
+                      className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-bold transition hover:brightness-95 disabled:opacity-50 ${isDark ? "bg-accentGreen text-black" : "bg-brandGreen text-white"}`}>
+                      {creatingTask ? <RefreshCw size={14} className="animate-spin" /> : (editingTaskId ? <Check size={14} /> : <Plus size={14} />)}
+                      {editingTaskId ? "Update Task" : "Publish Task"}
+                    </button>
+                    {editingTaskId && (
+                      <button type="button" onClick={cancelTaskEdit}
+                        className={`px-5 py-2.5 rounded-full text-sm font-bold transition ${isDark ? "bg-zinc-800 hover:bg-zinc-700 text-white" : "bg-gray-200 hover:bg-gray-300 text-black"}`}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              <div className={`${sectionCard} overflow-hidden`}>
+                <div className={`px-5 py-4 border-b ${divider}`}>
+                  <h2 className="text-base font-semibold">All Tasks <span className={`font-normal text-sm ${muted}`}>({tasksList.length})</span></h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[700px]">
+                    <THead cols={["#", "Title", "Course", "Type", "Actions"]} />
+                    <tbody className={`divide-y text-sm ${tableDivide}`}>
+                      {tasksList.length === 0 ? <EmptyRow cols={5} msg="No tasks yet" /> : tasksList.map(task => (
+                        <tr key={task.id} className={`transition-colors ${tableRowHover}`}>
+                          <td className={`px-5 py-3 text-xs ${muted}`}>#{task.id}</td>
+                          <td className="px-5 py-3 font-medium">{task.title}</td>
+                          <td className={`px-5 py-3 ${muted}`}>{adminLessons.find(l => l.id === task.lesson)?.title || `Lesson ID: ${task.lesson}`}</td>
+                          <td className={`px-5 py-3 ${muted}`}>{task.activity_type || "IMAGE"}</td>
+                          <td className="px-5 py-3 text-right">
+                            <div className="inline-flex gap-1.5">
+                              <button onClick={() => handleStartEditTask(task)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-blue-500/10 text-blue-400 hover:bg-blue-500/20" : "bg-blue-100 text-blue-700 hover:bg-blue-200"}`}><Pencil size={12} />Edit</button>
+                              <button onClick={() => handleDeleteTask(task.id)} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${isDark ? "bg-red-500/15 text-red-400 hover:bg-red-500/25" : "bg-red-100 text-red-700 hover:bg-red-200"}`}><Trash2 size={12} />Delete</button>
                             </div>
                           </td>
                         </tr>

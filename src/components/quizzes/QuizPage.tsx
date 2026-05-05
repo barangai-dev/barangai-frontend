@@ -56,6 +56,7 @@ interface QuizResult {
 
 type ChoiceKey = "A" | "B" | "C" | "D";
 type TabType = "ALL" | "PENDING" | "COMPLETED";
+type ActivityTab = "QUIZZES" | "TASKS";
 
 function normalizeText(value?: string | null) {
   return (value || "").trim().toLowerCase();
@@ -102,7 +103,12 @@ function getChoices(question: Question) {
   ].filter((choice) => choice.text);
 }
 
-export default function QuizPage() {
+type QuizPageProps = {
+  activityTab?: ActivityTab;
+  onSwitchTab?: (tab: ActivityTab) => void;
+};
+
+export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizPageProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const searchParams = useSearchParams();
@@ -342,6 +348,36 @@ export default function QuizPage() {
                   : "border-zinc-200 bg-white/90"
               }`}
             >
+              <div
+                className={`mb-3 flex p-1 rounded-xl ${
+                  isDark ? "bg-zinc-800/50" : "bg-zinc-100"
+                }`}
+              >
+                <button
+                  onClick={() => onSwitchTab?.("QUIZZES")}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${
+                    activityTab === "QUIZZES"
+                      ? isDark
+                        ? "bg-[#8CD559] text-black shadow-sm"
+                        : "bg-white text-brandGreen shadow-sm"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  Quizzes
+                </button>
+                <button
+                  onClick={() => onSwitchTab?.("TASKS")}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${
+                    activityTab === "TASKS"
+                      ? isDark
+                        ? "bg-[#8CD559] text-black shadow-sm"
+                        : "bg-white text-brandGreen shadow-sm"
+                      : "opacity-60 hover:opacity-100"
+                  }`}
+                >
+                  Tasks
+                </button>
+              </div>
               <div className="mb-4 flex items-center gap-2 px-1">
                 {selectedTopic && (
                   <button
