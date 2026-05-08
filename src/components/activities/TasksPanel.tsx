@@ -10,6 +10,8 @@ import {
   fetchAllActivities,
   submitActivity,
 } from "@/lib/activities";
+import { useI18n } from "@/context/i18n";
+import { translateDynamicText } from "@/lib/autoTranslate";
 
 type ActivityTab = "QUIZZES" | "TASKS";
 
@@ -57,6 +59,7 @@ export default function TasksPanel({ activityTab = "TASKS", onSwitchTab }: Tasks
   const MAX_FILE_SIZE_MB = 5;
   const MAX_FILE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
   const { theme } = useTheme();
+  const { language } = useI18n();
   const isDark = theme === "dark";
 
   const [activities, setActivities] = useState<ActivityItem[]>([]);
@@ -69,6 +72,7 @@ export default function TasksPanel({ activityTab = "TASKS", onSwitchTab }: Tasks
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [translatedTaskText, setTranslatedTaskText] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -88,6 +92,47 @@ export default function TasksPanel({ activityTab = "TASKS", onSwitchTab }: Tasks
   useEffect(() => {
     if (!selected && activities.length > 0) setSelected(activities[0]);
   }, [activities, selected]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (language === "en") {
+      setTranslatedTaskText({});
+      return;
+    }
+
+    const texts = Array.from(
+      new Set(
+        activities
+          .flatMap((activity) => [activity.title, activity.content])
+          .filter((value) => value?.trim())
+      )
+    );
+
+    if (texts.length === 0) {
+      setTranslatedTaskText({});
+      return;
+    }
+
+    Promise.all(
+      texts.map(async (text) => [text, await translateDynamicText(text, language)] as const)
+    )
+      .then((entries) => {
+        if (!cancelled) setTranslatedTaskText(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (!cancelled) setTranslatedTaskText({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language, activities]);
+
+  const displayTaskText = (value?: string | null) => {
+    if (!value) return "";
+    return translatedTaskText[value] ?? value;
+  };
 
   useEffect(() => {
     if (!imageAnswer) {
@@ -228,7 +273,7 @@ export default function TasksPanel({ activityTab = "TASKS", onSwitchTab }: Tasks
                       className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === item.id ? "border-brandGreen shadow-sm" : isDark ? "border-zinc-800 hover:border-zinc-700" : "border-zinc-200 hover:border-zinc-300"}`}
                     >
                       <div className="flex items-start justify-between gap-3">
-                        <p className="font-semibold text-base">{item.title}</p>
+                        <p className="font-semibold text-base">{displayTaskText(item.title)}</p>
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-600"}`}>
                           {item.activity_type}
                         </span>
@@ -247,7 +292,7 @@ export default function TasksPanel({ activityTab = "TASKS", onSwitchTab }: Tasks
                       onClick={() => setSelected(item)}
                       className={`w-full rounded-2xl border p-4 text-left transition ${selected?.id === item.id ? "border-brandGreen shadow-sm" : isDark ? "border-zinc-800 hover:border-zinc-700" : "border-zinc-200 hover:border-zinc-300"}`}
                     >
-                      <p className="font-semibold text-base">{item.title}</p>
+                      <p className="font-semibold text-base">{displayTaskText(item.title)}</p>
                       <p className={`mt-2 inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles(item.user_submission?.status, isDark)}`}>
                         {item.user_submission?.status || "MANUAL_REVIEW"}
                       </p>
@@ -275,8 +320,8 @@ export default function TasksPanel({ activityTab = "TASKS", onSwitchTab }: Tasks
                   <ArrowLeft className="w-4 h-4" />
                   Back to task list
                 </button>
-                <h3 className="text-3xl font-bold">{selected.title}</h3>
-                <p className="mt-3 text-base opacity-80 leading-relaxed">{selected.content}</p>
+                <h3 className="text-3xl font-bold">{displayTaskText(selected.title)}</h3>
+                <p className="mt-3 text-base opacity-80 leading-relaxed">{displayTaskText(selected.content)}</p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${isDark ? "bg-zinc-800 text-zinc-300" : "bg-zinc-100 text-zinc-700"}`}>
                     {selected.activity_type === "IMAGE" ? <FileImage className="w-3.5 h-3.5" /> : <FileText className="w-3.5 h-3.5" />}

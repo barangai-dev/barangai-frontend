@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/context/auth";
 import { ThemeProvider } from "@/context/theme";
+import { I18nProvider } from "@/context/i18n";
 import ClientWrapper from "@/components/dashboard/ClientWrapper";
 import MaintenanceBanner from "@/components/dashboard/MaintenanceBanner"; 
 import FloatingChatOverlay from "@/components/chatbot/FloatingChatOverlay";
@@ -35,14 +36,16 @@ export default function RootLayout({
       <body className="bg-background text-foreground min-h-screen relative flex flex-col">
         {/* <MaintenanceBanner /> */}
         <AuthProvider>
-          <ThemeProvider>
-            <ClientWrapper>
-              <main className="flex-1 w-full">
-                {children}
-              </main>
-              <FloatingChatOverlay />
-            </ClientWrapper>
-          </ThemeProvider>
+          <I18nProvider>
+            <ThemeProvider>
+              <ClientWrapper>
+                <main className="flex-1 w-full">
+                  {children}
+                </main>
+                <FloatingChatOverlay />
+              </ClientWrapper>
+            </ThemeProvider>
+          </I18nProvider>
         </AuthProvider>
       </body>
     </html>

@@ -21,6 +21,8 @@ import { API_BASE_URL } from "@/lib/auth";
 import chatBgLight from "@/assets/img/chatBotBg-white.png";
 import chatBgDark from "@/assets/img/chatBotBg-black.png";
 import { useTheme } from "@/context/theme";
+import { useI18n } from "@/context/i18n";
+import { translateDynamicText } from "@/lib/autoTranslate";
 
 interface Question {
   id: number;
@@ -110,6 +112,7 @@ type QuizPageProps = {
 
 export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizPageProps) {
   const { theme } = useTheme();
+  const { language, t } = useI18n();
   const isDark = theme === "dark";
   const searchParams = useSearchParams();
 
@@ -127,6 +130,8 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
   const [answers, setAnswers] = useState<Record<number, ChoiceKey>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [translatedQuizText, setTranslatedQuizText] = useState<Record<string, string>>({});
+  const [showIncompleteSubmitModal, setShowIncompleteSubmitModal] = useState(false);
 
   const baseUrl = API_BASE_URL.endsWith("/") ? API_BASE_URL : `${API_BASE_URL}/`;
 
@@ -259,6 +264,61 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
     setQuizError("");
   };
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (language === "en") {
+      setTranslatedQuizText({});
+      return;
+    }
+
+    const values = new Set<string>();
+    assessments.forEach((assessment) => {
+      values.add(assessment.title);
+      values.add(assessment.topic);
+      assessment.questions.forEach((question) => {
+        values.add(question.question_text);
+        values.add(question.choice_a);
+        values.add(question.choice_b);
+        values.add(question.choice_c);
+        values.add(question.choice_d);
+      });
+    });
+
+    selectedQuiz?.questions.forEach((question) => {
+      values.add(question.question_text);
+      values.add(question.choice_a);
+      values.add(question.choice_b);
+      values.add(question.choice_c);
+      values.add(question.choice_d);
+    });
+
+    const texts = Array.from(values).filter((value) => value?.trim());
+    if (texts.length === 0) {
+      setTranslatedQuizText({});
+      return;
+    }
+
+    Promise.all(
+      texts.map(async (text) => [text, await translateDynamicText(text, language)] as const)
+    )
+      .then((entries) => {
+        if (!cancelled) setTranslatedQuizText(Object.fromEntries(entries));
+      })
+      .catch(() => {
+        if (!cancelled) setTranslatedQuizText({});
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language, assessments, selectedQuiz]);
+
+  const displayQuizText = (value?: string | null) => {
+    if (!value) return "";
+    return translatedQuizText[value] ?? value;
+  };
+
   const handlePickAnotherQuiz = () => {
     setSelectedQuiz(null);
     resetQuiz();
@@ -281,8 +341,15 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
     }
   };
 
-  const submitQuiz = async () => {
-    if (!selectedQuiz) return;
+  const submitQuizRequest = async (skipIncompleteCheck = false) => {
+    if (!selectedQuiz) return false;
+
+    const unansweredCount = selectedQuiz.total_questions - answeredCount;
+    if (!skipIncompleteCheck && unansweredCount > 0) {
+      setShowIncompleteSubmitModal(true);
+      return false;
+    }
+
     setSubmitting(true);
     try {
       const token = localStorage.getItem("access_token");
@@ -309,15 +376,26 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
           a.id === selectedQuiz.id ? { ...a, completed: true, score: data.score } : a
         )
       );
+      return true;
     } catch {
       setQuizError("Submission failed. Scores may not be saved.");
+      return false;
     } finally {
       setSubmitting(false);
     }
   };
 
+  const submitQuiz = () => submitQuizRequest(false);
+  const submitIncompleteQuiz = async () => {
+    setShowIncompleteSubmitModal(false);
+    await submitQuizRequest(true);
+  };
+
   const answeredCount = Object.keys(answers).length;
-  const isQuizComplete = answeredCount === (selectedQuiz?.total_questions || 0);
+  const unansweredCount = Math.max((selectedQuiz?.total_questions || 0) - answeredCount, 0);
+  const unansweredDescription = t("quizzesPage.unansweredDescription")
+    .replace("{count}", String(unansweredCount))
+    .replace("{plural}", unansweredCount === 1 ? "" : "s");
 
   return (
     <div className="h-screen overflow-hidden">
@@ -337,6 +415,61 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
 
         <div className="relative z-10 flex h-full min-h-0 flex-col">
           <TopBar searchValue={query} onSearch={setQuery} />
+
+          {showIncompleteSubmitModal && (
+            <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+              <div
+                className="absolute inset-0 bg-black/55 backdrop-blur-md"
+                onClick={() => setShowIncompleteSubmitModal(false)}
+              />
+              <div
+                className={`relative w-full max-w-md overflow-hidden rounded-3xl border p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] ${
+                  isDark
+                    ? "border-[#8CD559]/20 bg-[#0d1510]/95 text-white"
+                    : "border-[#d6e9cf] bg-white/95 text-[#1f2a44]"
+                }`}
+              >
+                <div
+                  className={`mb-5 grid h-12 w-12 place-items-center rounded-2xl ${
+                    isDark ? "bg-[#8CD559]/15 text-[#8CD559]" : "bg-[#9DE16A]/35 text-[#3E7416]"
+                  }`}
+                >
+                  <ClipboardList size={24} />
+                </div>
+                <h3 className="text-xl font-black tracking-tight">
+                  {t("quizzesPage.unansweredTitle")}
+                </h3>
+                <p className={`mt-2 text-sm leading-6 ${isDark ? "text-zinc-300" : "text-zinc-600"}`}>
+                  {unansweredDescription}
+                </p>
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setShowIncompleteSubmitModal(false)}
+                    className={`flex-1 rounded-xl border px-4 py-3 text-sm font-bold transition ${
+                      isDark
+                        ? "border-zinc-700 bg-zinc-900 text-zinc-100 hover:bg-zinc-800"
+                        : "border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50"
+                    }`}
+                  >
+                    {t("quizzesPage.answerRemaining")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={submitIncompleteQuiz}
+                    disabled={submitting}
+                    className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition disabled:opacity-60 ${
+                      isDark
+                        ? "bg-[#8CD559] text-black hover:bg-[#9DE16A]"
+                        : "bg-brandGreen text-white hover:opacity-90"
+                    }`}
+                  >
+                    {submitting ? t("quizzesPage.submitting") : t("quizzesPage.submitAnyway")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="mt-3 grid min-h-0 flex-1 gap-4 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)]">
 
@@ -363,7 +496,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                       : "opacity-60 hover:opacity-100"
                   }`}
                 >
-                  Quizzes
+                  {t("quizzesPage.quizzes")}
                 </button>
                 <button
                   onClick={() => onSwitchTab?.("TASKS")}
@@ -375,7 +508,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                       : "opacity-60 hover:opacity-100"
                   }`}
                 >
-                  Tasks
+                  {t("quizzesPage.tasks")}
                 </button>
               </div>
               <div className="mb-4 flex items-center gap-2 px-1">
@@ -389,7 +522,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                 )}
                 {/* --- CHANGED THIS LINE RIGHT HERE --- */}
                 <h2 className="text-lg font-bold truncate">
-                  {selectedTopic ? selectedTopic : "Quizzes"}
+                  {selectedTopic ? displayQuizText(selectedTopic) : t("quizzesPage.quizzes")}
                 </h2>
               </div>
 
@@ -411,7 +544,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                           : "opacity-60 hover:opacity-100"
                       }`}
                     >
-                      {tab}
+                      {tab === "ALL" ? t("quizzesPage.all") : tab === "PENDING" ? t("quizzesPage.pending") : t("quizzesPage.completed")}
                     </button>
                   ))}
                 </div>
@@ -420,11 +553,11 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
               <div className="min-h-0 flex-1 overflow-y-auto space-y-3 pr-1">
                 {loading ? (
                   <div className="p-4 text-center animate-pulse text-sm opacity-50">
-                    Loading content...
+                    {t("quizzesPage.loadingContent")}
                   </div>
                 ) : topicGroups.length === 0 ? (
                   <div className="p-8 text-center text-sm opacity-50">
-                    No {activeTab.toLowerCase()} quizzes found.
+                    {t("quizzesPage.noQuizzesFound")}
                   </div>
                 ) : !selectedTopic ? (
                   topicGroups.map(([topic, quizzes]) => (
@@ -449,9 +582,9 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                             <BookOpen size={20} />
                           </div>
                           <div className="min-w-0">
-                            <h3 className="truncate text-base font-bold">{topic}</h3>
+                            <h3 className="truncate text-base font-bold">{displayQuizText(topic)}</h3>
                             <p className="text-xs opacity-50">
-                              {quizzes.length} Quizzes Available
+                              {quizzes.length} {t("quizzesPage.quizzesAvailable")}
                             </p>
                           </div>
                         </div>
@@ -482,13 +615,13 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                         <div className="flex justify-between items-start gap-2">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-bold truncate leading-tight">
-                              {assessment.title}
+                              {displayQuizText(assessment.title)}
                             </p>
                             <div className="flex items-center gap-4 mt-2">
                               <div className="flex items-center gap-3 opacity-60 text-[11px] font-medium">
                                 <span className="flex items-center gap-1.5">
                                   <ClipboardList size={14} />
-                                  {assessment.total_questions} Qs
+                                  {assessment.total_questions} {t("quizzesPage.qs")}
                                 </span>
                                 <span className="flex items-center gap-1.5">
                                   <Clock3 size={14} />
@@ -506,7 +639,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                                   <CheckCircle size={10} />
                                   {assessment.score !== null && assessment.score !== undefined
                                     ? `${assessment.score}%`
-                                    : "Done"}
+                                    : t("quizzesPage.done")}
                                 </div>
                               )}
                             </div>
@@ -534,17 +667,19 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                   <div className="mx-auto max-w-3xl">
                     <div className="text-center mb-8">
                       <h2 className="text-3xl font-black italic uppercase tracking-tighter">
-                        Quiz Complete
+                        {t("quizzesPage.quizComplete")}
                       </h2>
                       <div
                         className={`mt-4 inline-flex items-center gap-3 px-6 py-2 rounded-full font-bold text-xl ${
                           isDark ? "bg-[#8CD559] text-black" : "bg-brandGreen text-white"
                         }`}
                       >
-                        Score: {result.correct_count}/{result.total_questions}
+                        {t("quizzesPage.score")}: {result.correct_count}/{result.total_questions}
                       </div>
                       <p className="mt-2 text-sm opacity-60">
-                        You got {result.correct_count} out of {result.total_questions} questions correct.
+                        {t("quizzesPage.gotCorrect")
+                          .replace("{correct}", String(result.correct_count))
+                          .replace("{total}", String(result.total_questions))}
                       </p>
                       {quizError && (
                         <p className="mt-2 text-red-500 font-medium text-sm">{quizError}</p>
@@ -553,14 +688,13 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
 
                     <div className="space-y-6">
                       <h3 className="text-lg font-bold border-b border-zinc-700 pb-2">
-                        Question Review
+                        {t("quizzesPage.questionReview")}
                       </h3>
 
                       {(!result.correct_answers ||
                         Object.keys(result.correct_answers).length === 0) && (
                         <div className="p-4 bg-red-500/10 border border-red-500/50 text-red-500 rounded-xl font-medium text-sm">
-                          ⚠️ Warning: The backend did not return the `correct_answers`
-                          dictionary. Review highlighting is disabled.
+                          {t("quizzesPage.reviewWarning")}
                         </div>
                       )}
 
@@ -602,7 +736,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                               >
                                 {idx + 1}
                               </span>
-                              <p className="font-semibold text-lg">{q.question_text}</p>
+                              <p className="font-semibold text-lg">{displayQuizText(q.question_text)}</p>
                             </div>
 
                             <div className="mt-5 grid gap-2.5">
@@ -641,7 +775,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                                       <span className={`font-bold ${textStyle}`}>
                                         {choice.key}.
                                       </span>
-                                      {choice.text}
+                                      {displayQuizText(choice.text)}
                                     </span>
                                     {hasBackendAnswer && isCorrectChoice && (
                                       <CheckCircle2 size={18} className="text-green-500" />
@@ -662,9 +796,9 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                                     : "bg-zinc-100 border-zinc-200 text-zinc-700"
                                 }`}
                               >
-                                Correct Answer:{" "}
+                                {t("quizzesPage.correctAnswer")}:{" "}
                                 <span className="text-green-500">
-                                  {correctChoiceObj.key}. {correctChoiceObj.text}
+                                  {correctChoiceObj.key}. {displayQuizText(correctChoiceObj.text)}
                                 </span>
                               </div>
                             )}
@@ -682,7 +816,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                             : "border-zinc-300 bg-white text-zinc-900 hover:bg-zinc-50"
                         }`}
                       >
-                        <RotateCcw size={18} /> Retake Quiz
+                        <RotateCcw size={18} /> {t("quizzesPage.retakeQuiz")}
                       </button>
                       <button
                         onClick={handlePickAnotherQuiz}
@@ -692,7 +826,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                             : "bg-zinc-900 text-white hover:bg-black"
                         }`}
                       >
-                        <BookOpen size={18} /> Pick Another Quiz
+                        <BookOpen size={18} /> {t("quizzesPage.pickAnotherQuiz")}
                       </button>
                     </div>
                   </div>
@@ -709,28 +843,24 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                         isDark ? "text-[#8CD559]" : "text-brandGreen"
                       }`}
                     >
-                      {selectedQuiz.topic}
+                      {displayQuizText(selectedQuiz.topic)}
                     </p>
                     <h3 className="truncate text-xl font-bold mt-1">
-                      {selectedQuiz.title}
+                      {displayQuizText(selectedQuiz.title)}
                     </h3>
                   </div>
 
-                  <div className="flex-1 overflow-hidden px-5 py-0 lg:px-12 flex flex-col">
+                  <div className="flex-1 min-h-0 overflow-y-auto px-5 py-0 pb-6 lg:px-12 flex flex-col">
                     <Stepper
                       initialStep={1}
                       onStepChange={(step) => setCurrentStep(step)}
                       onFinalStepCompleted={submitQuiz}
-                      backButtonText="Prev"
-                      nextButtonText="Next"
-                      submitButtonText={submitting ? "Submitting..." : "Submit Quiz"}
+                      backButtonText={t("quizzesPage.prev")}
+                      nextButtonText={t("quizzesPage.next")}
+                      submitButtonText={submitting ? t("quizzesPage.submitting") : t("quizzesPage.submitQuiz")}
                       nextButtonProps={{
                         disabled: submitting,
-                        className: `duration-350 flex items-center justify-center rounded-xl py-2 px-5 text-sm font-bold tracking-tight text-black transition-all ${
-                          currentStep === selectedQuiz.total_questions && !isQuizComplete
-                            ? "opacity-0 pointer-events-none translate-y-2"
-                            : "opacity-100 translate-y-0 bg-[#8CD559] hover:bg-[#7bc04e]"
-                        }`,
+                        className: "duration-350 flex items-center justify-center rounded-xl py-2 px-5 text-sm font-bold tracking-tight text-black transition-all opacity-100 translate-y-0 bg-[#8CD559] hover:bg-[#7bc04e]",
                       }}
                       backButtonProps={{
                         className: `duration-350 rounded-xl px-5 py-2 text-sm font-bold transition-all border ${
@@ -746,10 +876,12 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                         <Step key={q.id}>
                           <div className="mx-auto max-w-2xl py-2">
                             <div className="flex items-center gap-2 text-[11px] font-bold opacity-50 mb-2 uppercase">
-                              Question {index + 1} of {selectedQuiz.total_questions}
+                              {t("quizzesPage.questionOf")
+                                .replace("{current}", String(index + 1))
+                                .replace("{total}", String(selectedQuiz.total_questions))}
                             </div>
                             <h4 className="text-lg sm:text-xl font-semibold leading-snug">
-                              {q.question_text}
+                              {displayQuizText(q.question_text)}
                             </h4>
 
                             <div className="mt-4 sm:mt-6 space-y-2">
@@ -786,7 +918,7 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                                       {choice.key}
                                     </span>
                                     <span className="text-sm sm:text-base font-medium">
-                                      {choice.text}
+                                      {displayQuizText(choice.text)}
                                     </span>
                                   </button>
                                 );
@@ -809,10 +941,9 @@ export default function QuizPage({ activityTab = "QUIZZES", onSwitchTab }: QuizP
                   >
                     <ClipboardList size={40} />
                   </div>
-                  <h3 className="text-xl font-bold">No Quiz Selected</h3>
+                  <h3 className="text-xl font-bold">{t("quizzesPage.noQuizSelected")}</h3>
                   <p className="text-sm max-w-xs mt-2">
-                    Pick a topic from the left sidebar to start testing
-                    your knowledge.
+                    {t("quizzesPage.pickTopicToStart")}
                   </p>
                 </div>
               )}

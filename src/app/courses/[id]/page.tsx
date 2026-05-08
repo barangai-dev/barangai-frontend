@@ -14,10 +14,24 @@ import {
   readCachedLessons,
   writeCachedLessons,
 } from "@/lib/lessonProgress";
+import { translateDynamicCourseText } from "@/lib/autoTranslate";
 import { useTheme } from "@/context/theme";
+import { useI18n } from "@/context/i18n";
 
 // ─── Offline Export ───────────────────────────────────────────────────────────
-function exportLessonAsHTML(lesson: LessonRecord) {
+type OfflineLessonLabels = {
+  lessons: string;
+  quizzes: string;
+  savedOn: string;
+  score: string;
+  testYourKnowledge: string;
+  readyTakeQuiz: string;
+  openBarangAIQuiz: string;
+  savedFromBarangAI: string;
+  noContentAvailable: string;
+};
+
+function exportLessonAsHTML(lesson: LessonRecord, labels: OfflineLessonLabels) {
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -89,21 +103,21 @@ function exportLessonAsHTML(lesson: LessonRecord) {
     <div class="badge">${lesson.topic}</div>
     <h1>${lesson.title}</h1>
     <div class="meta">
-      <span>📚 ${lesson.total_lessons} Lessons</span>
-      <span>📝 ${lesson.total_quizzes} Quizzes</span>
-      <span>📅 Saved on ${new Date().toLocaleDateString()}</span>
-      ${typeof lesson.score === "number" ? `<span>⭐ Score: ${lesson.score}%</span>` : ""}
+      <span>📚 ${lesson.total_lessons} ${labels.lessons}</span>
+      <span>📝 ${lesson.total_quizzes} ${labels.quizzes}</span>
+      <span>📅 ${labels.savedOn} ${new Date().toLocaleDateString()}</span>
+      ${typeof lesson.score === "number" ? `<span>⭐ ${labels.score}: ${lesson.score}%</span>` : ""}
     </div>
-    <div class="content">${lesson.content ?? "No content available."}</div>
+    <div class="content">${lesson.content ?? labels.noContentAvailable}</div>
 
     <div class="quiz-cta">
-      <h3>📋 Test Your Knowledge</h3>
-      <p>Ready to check what you learned? Go back online and take the quiz for this lesson.</p>
-      <span class="note">Open the BarangAI app → Quizzes → ${lesson.topic}</span>
+      <h3>📋 ${labels.testYourKnowledge}</h3>
+      <p>${labels.readyTakeQuiz}</p>
+      <span class="note">${labels.openBarangAIQuiz} -> ${lesson.topic}</span>
     </div>
 
     <div class="footer">
-      Saved from BarangAI · Open this file in any browser to read offline
+      ${labels.savedFromBarangAI}
     </div>
   </div>
 </body>
@@ -123,11 +137,13 @@ export default function CourseDetailPage() {
   const params = useParams<{ id: string }>();
   const courseId = Number(params?.id);
   const { theme } = useTheme();
+  const { language, t } = useI18n();
   const isDark = theme === "dark";
 
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [lesson, setLesson] = useState<LessonRecord | null>(null);
+  const [translatedCourseContent, setTranslatedCourseContent] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -258,6 +274,31 @@ export default function CourseDetailPage() {
     return `/activities?${params.toString()}`;
   }, [lesson?.topic, lesson?.title, courseId]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const content = lesson?.content ?? "";
+
+    if (!content || language === "en") {
+      setTranslatedCourseContent("");
+      return;
+    }
+
+    setTranslatedCourseContent("");
+    translateDynamicCourseText(content, language)
+      .then((translated) => {
+        if (!cancelled) setTranslatedCourseContent(translated);
+      })
+      .catch(() => {
+        if (!cancelled) setTranslatedCourseContent("");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [language, lesson?.content]);
+
+  const visibleCourseContent = translatedCourseContent || lesson?.content || t("coursesPage.noContentAvailable");
+
   const handleCompleteCourse = async () => {
     if (!lesson) return;
 
@@ -321,7 +362,7 @@ export default function CourseDetailPage() {
                 }`}
               >
                 <ArrowLeft size={16} />
-                Back to Lessons
+                {t("coursesPage.backToLessons")}
               </Link>
 
               <div className="flex flex-wrap gap-3">
@@ -337,14 +378,26 @@ export default function CourseDetailPage() {
                     }`}
                   >
                     <ExternalLink size={16} />
-                    Open Resource
+                    {t("coursesPage.openResource")}
                   </Link>
                 )}
 
                 {/* Download lesson as offline HTML */}
                 {lesson && (
                   <button
-                    onClick={() => exportLessonAsHTML(lesson)}
+                    onClick={() =>
+                      exportLessonAsHTML({ ...lesson, content: visibleCourseContent }, {
+                        lessons: t("coursesPage.lessons"),
+                        quizzes: t("coursesPage.quizzes"),
+                        savedOn: t("coursesPage.savedOn"),
+                        score: t("coursesPage.score"),
+                        testYourKnowledge: t("coursesPage.testYourKnowledge"),
+                        readyTakeQuiz: t("coursesPage.readyTakeQuiz"),
+                        openBarangAIQuiz: t("coursesPage.openBarangAIQuiz"),
+                        savedFromBarangAI: t("coursesPage.savedFromBarangAI"),
+                        noContentAvailable: t("coursesPage.noContentAvailable"),
+                      })
+                    }
                     className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
                       isDark
                         ? "bg-white/10 text-white hover:bg-white/20"
@@ -352,7 +405,7 @@ export default function CourseDetailPage() {
                     }`}
                   >
                     <Download size={16} />
-                    Download Lesson
+                    {t("coursesPage.downloadLesson")}
                   </button>
                 )}
 
@@ -370,7 +423,7 @@ export default function CourseDetailPage() {
                         : "bg-green-600 text-white"
                     }`}
                   >
-                    {lesson.completed ? "Mark Incomplete" : "Complete Course"}
+                    {lesson.completed ? t("coursesPage.markIncomplete") : t("coursesPage.completeCourse")}
                   </button>
                 )}
               </div>
@@ -379,7 +432,7 @@ export default function CourseDetailPage() {
             {/* ── States ── */}
             {loading ? (
               <div className="p-10 text-center font-bold text-brandGreen">
-                Loading course...
+                {t("coursesPage.loadingCourse")}
               </div>
             ) : error ? (
               <div
@@ -389,7 +442,7 @@ export default function CourseDetailPage() {
                     : "border-gray-200 bg-white/90"
                 }`}
               >
-                <h1 className="text-2xl font-bold">Course unavailable</h1>
+                <h1 className="text-2xl font-bold">{t("coursesPage.courseUnavailable")}</h1>
                 <p className={`mt-3 ${isDark ? "text-zinc-300" : "text-gray-600"}`}>
                   {error}
                 </p>
@@ -440,22 +493,22 @@ export default function CourseDetailPage() {
                   >
                     <div className="inline-flex items-center gap-3">
                       <BookOpen size={18} className="text-[#9DE16A]" />
-                      <span>{lesson.total_lessons} Lessons</span>
+                      <span>{lesson.total_lessons} {t("coursesPage.lessons")}</span>
                     </div>
                     <div>
-                      <span className="font-semibold">{lesson.total_quizzes}</span> quizzes
+                      <span className="font-semibold">{lesson.total_quizzes}</span> {t("coursesPage.quizzes")}
                     </div>
                     <div>
-                      <span className="font-semibold">{lesson.progress}%</span> progress
+                      <span className="font-semibold">{lesson.progress}%</span> {t("coursesPage.progress")}
                     </div>
                     <div>
                       <span className="font-semibold">
-                        {lesson.completed ? "Completed" : "In progress"}
+                        {lesson.completed ? t("coursesPage.completed") : t("coursesPage.inProgress")}
                       </span>
                     </div>
                     {typeof lesson.score === "number" && (
                       <div>
-                        <span className="font-semibold">{lesson.score}%</span> latest score
+                        <span className="font-semibold">{lesson.score}%</span> {t("coursesPage.latestScore")}
                       </div>
                     )}
                   </div>
@@ -469,7 +522,7 @@ export default function CourseDetailPage() {
                         isDark ? "text-zinc-100" : "text-[#034440]"
                       }`}
                     >
-                      Course Content
+                      {t("coursesPage.courseContent")}
                     </h2>
 
                     <div
@@ -477,7 +530,7 @@ export default function CourseDetailPage() {
                         isDark ? "text-zinc-200" : "text-gray-700"
                       }`}
                     >
-                      {lesson.content || "No content available for this course yet."}
+                      {visibleCourseContent}
                     </div>
 
                     {/* ── Quiz CTA at the bottom ── */}
@@ -493,14 +546,14 @@ export default function CourseDetailPage() {
                           size={20}
                           className={isDark ? "text-[#8CD559]" : "text-brandGreen"}
                         />
-                        <h3 className="text-lg font-bold">Test Your Knowledge</h3>
+                        <h3 className="text-lg font-bold">{t("coursesPage.testYourKnowledge")}</h3>
                       </div>
                       <p
                         className={`text-sm mb-4 ${
                           isDark ? "text-zinc-400" : "text-gray-500"
                         }`}
                       >
-                        Ready to check what you learned? Take the quiz for this lesson.
+                        {t("coursesPage.readyTakeQuiz")}
                       </p>
                       <Link
                         href={quizHref}
@@ -511,7 +564,7 @@ export default function CourseDetailPage() {
                         }`}
                       >
                         <ClipboardList size={16} />
-                        Take the Quiz
+                        {t("coursesPage.takeQuiz")}
                       </Link>
                     </div>
                   </div>

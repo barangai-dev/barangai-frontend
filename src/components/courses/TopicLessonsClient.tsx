@@ -7,6 +7,7 @@ import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
 import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
 import { useTheme } from "@/context/theme";
+import { useI18n } from "@/context/i18n";
 
 function getTopicColors(topic?: string | null) {
   const t = (topic || "").toLowerCase();
@@ -19,6 +20,7 @@ function getTopicColors(topic?: string | null) {
 
 export default function TopicLessonsClient({ topic }: { topic: string }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const isDark = theme === "dark";
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(true);
@@ -96,7 +98,7 @@ export default function TopicLessonsClient({ topic }: { topic: string }) {
             className={`inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold ${isDark ? "bg-zinc-800 text-zinc-100" : "bg-zinc-100 text-zinc-700"}`}
           >
             <ArrowLeft size={14} />
-            Back to Courses
+            {t("coursesPage.backToCourses")}
           </Link>
         </div>
 
@@ -105,16 +107,16 @@ export default function TopicLessonsClient({ topic }: { topic: string }) {
           <div className="p-4">
             <h1 className="text-xl font-bold">{topic}</h1>
             <p className={`mt-1 text-sm ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-              {topicLessons.length} lessons • {completedCount}/{topicLessons.length} completed • {progress}% average progress
+              {topicLessons.length} {t("coursesPage.lessons")} • {completedCount}/{topicLessons.length} {t("coursesPage.completedLower")} • {progress}% {t("coursesPage.averageProgress")}
             </p>
           </div>
         </section>
 
         {loading ? (
-          <div className="mt-6 text-sm">Loading lessons...</div>
+          <div className="mt-6 text-sm">{t("coursesPage.loadingLessons")}</div>
         ) : topicLessons.length === 0 ? (
           <div className={`mt-6 rounded-xl border border-dashed p-10 text-center text-sm ${isDark ? "border-zinc-800 text-zinc-400" : "border-zinc-200 text-zinc-500"}`}>
-            No lessons found for this course.
+            {t("coursesPage.noLessonsFound")}
           </div>
         ) : (
           <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -127,13 +129,13 @@ export default function TopicLessonsClient({ topic }: { topic: string }) {
                 <div className="p-3">
                   <p className="line-clamp-2 text-sm font-semibold">{lesson.title}</p>
                   <div className={`mt-2 flex flex-wrap items-center gap-2 text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                    <span>{lesson.completed ? "Completed" : lesson.progress > 0 ? "In progress" : "Not started"}</span>
+                    <span>{lesson.completed ? t("coursesPage.completed") : lesson.progress > 0 ? t("coursesPage.inProgress") : t("coursesPage.notStarted")}</span>
                     <span>•</span>
                     <span>{lesson.progress}%</span>
                     {typeof lesson.score === "number" && (
                       <>
                         <span>•</span>
-                        <span>Score {lesson.score}%</span>
+                        <span>{t("coursesPage.score")} {lesson.score}%</span>
                       </>
                     )}
                   </div>
@@ -153,7 +155,7 @@ export default function TopicLessonsClient({ topic }: { topic: string }) {
                       href={`/courses/${lesson.id}`}
                       className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${isDark ? "bg-accentGreen text-zinc-900 hover:bg-accentGreen/90" : "bg-brandGreen text-white hover:bg-brandGreen/90"}`}
                     >
-                      Open Lesson
+                      {t("coursesPage.openLesson")}
                     </Link>
                   </div>
                 </div>

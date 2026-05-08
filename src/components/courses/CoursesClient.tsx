@@ -7,6 +7,7 @@ import TopBar from "@/components/dashboard/TopBar";
 import { API_BASE_URL } from "@/lib/auth";
 import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "@/lib/lessonProgress";
 import { useTheme } from "@/context/theme";
+import { useI18n } from "@/context/i18n";
 
 function getTopicColors(topic?: string | null) {
   const t = (topic || "").toLowerCase();
@@ -52,6 +53,7 @@ function getTopicColors(topic?: string | null) {
 
 export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; searchQuery?: string }) {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const isDark = theme === "dark";
   const [lessons, setLessons] = useState<LessonRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +157,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
 
   if (loading) return (
     <div className="flex items-center justify-center h-full p-10 text-brandGreen font-medium">
-      Loading Courses...
+      {t("coursesPage.loadingCourses")}
     </div>
   );
 
@@ -171,9 +173,9 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         {/* Header & Tabs */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 mt-6">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-1">Your Courses</h2>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-1">{t("coursesPage.yourCourses")}</h2>
             <p className={`text-sm ${isDark ? 'text-zinc-400' : 'text-zinc-500'}`}>
-              Continue learning where you left off.
+              {t("coursesPage.continueLearningWhereLeft")}
             </p>
           </div>
           
@@ -186,7 +188,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                   : `text-zinc-500 hover:text-zinc-700 ${isDark ? 'hover:text-zinc-300' : ''}`
               }`}
             >
-              Enrolled ({enrolledTopicGroups.length})
+              {t("coursesPage.enrolled")} ({enrolledTopicGroups.length})
             </button>
             <button 
               onClick={() => setActiveTab('completed')} 
@@ -196,7 +198,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                   : `text-zinc-500 hover:text-zinc-700 ${isDark ? 'hover:text-zinc-300' : ''}`
               }`}
             >
-              Completed ({completedTopicGroups.length})
+              {t("coursesPage.completed")} ({completedTopicGroups.length})
             </button>
           </div>
         </div>
@@ -205,8 +207,8 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
         {visibleTopicGroups.length === 0 ? (
           <div className={`p-12 text-center rounded-xl border border-dashed ${isDark ? 'border-zinc-800 text-zinc-500' : 'border-zinc-200 text-zinc-500'}`}>
             {activeTab === "completed"
-              ? "No completed courses yet. Finish a quiz to mark a lesson as complete."
-              : "No courses found. Try a different search or refresh the page."}
+              ? t("coursesPage.noCompletedCourses")
+              : t("coursesPage.noCoursesFound")}
           </div>
         ) : (
           <div className="space-y-4">
@@ -235,7 +237,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                       <div className="min-w-0">
                         <h3 className="text-sm md:text-base font-semibold truncate">{topic}</h3>
                         <p className={`text-xs ${isDark ? "text-zinc-400" : "text-zinc-500"}`}>
-                          {topicLessons.length} lesson{topicLessons.length > 1 ? "s" : ""} • {completedInTopic}/{topicLessons.length} completed • {topicProgress}% progress
+                          {topicLessons.length} {topicLessons.length > 1 ? t("coursesPage.lessons") : t("coursesPage.lesson")} • {completedInTopic}/{topicLessons.length} {t("coursesPage.completedLower")} • {topicProgress}% {t("coursesPage.progress")}
                         </p>
                       </div>
                     </div>
@@ -284,10 +286,10 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                                             : "bg-zinc-100 text-zinc-600"
                                     }`}
                                   >
-                                    {lesson.completed ? "Completed" : lesson.progress > 0 ? "In progress" : "Not started"}
+                                    {lesson.completed ? t("coursesPage.completed") : lesson.progress > 0 ? t("coursesPage.inProgress") : t("coursesPage.notStarted")}
                                   </span>
                                   <span>{lesson.progress}%</span>
-                                  {typeof lesson.score === "number" && <span>Score {lesson.score}%</span>}
+                                  {typeof lesson.score === "number" && <span>{t("coursesPage.score")} {lesson.score}%</span>}
                                 </div>
                               </div>
 
@@ -315,7 +317,7 @@ export default function CoursesList({ apiUrl, searchQuery }: { apiUrl?: string; 
                                         : "bg-brandGreen text-white hover:bg-brandGreen/90"
                                     }`}
                                   >
-                                    Open Lesson
+                                    {t("coursesPage.openLesson")}
                                   </Link>
                                 </div>
                               </div>

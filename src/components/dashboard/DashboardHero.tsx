@@ -7,9 +7,11 @@ import { LessonRecord, mapLesson, readCachedLessons, writeCachedLessons } from "
 import { fetchGeneralStatisticsReport, type GeneralStatisticsReport } from "@/lib/statistics";
 import { BookOpen, ArrowUpRight, Brain, TrendingUp, ArrowRight } from "lucide-react";
 import { useTheme } from "@/context/theme";
+import { useI18n } from "@/context/i18n";
 
 export default function DashboardHero() {
   const { theme } = useTheme();
+  const { t } = useI18n();
   const isDark = theme === "dark";
 
   const [entered, setEntered] = useState(false);
@@ -93,6 +95,7 @@ export default function DashboardHero() {
 
   return (
     <section
+      data-no-i18n="true"
       className={`relative w-full overflow-hidden rounded-[2rem] p-6 transition-all duration-700 ease-out border shadow-xl ${
         entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
       } ${
@@ -110,11 +113,11 @@ export default function DashboardHero() {
         {/* LEFT: TEXT CONTENT */}
         <div className="flex-1 min-w-0">
           <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isDark ? "text-[#B4ED7C]" : "text-[#5A9B29]"}`}>
-            Welcome back, {userName}
+            {t("dashboardHero.welcomeBack")}, {userName}
           </p>
           <h2 className={`text-3xl font-black leading-tight ${isDark ? "text-white" : "text-[#034440]"}`}>
-            You&apos;re enrolled in <br />
-            <span className={isDark ? "text-white/90" : "text-[#034440]/80"}>{lessons.length} Courses</span>
+            {t("dashboardHero.enrolledIn")} <br />
+            <span className={isDark ? "text-white/90" : "text-[#034440]/80"}>{lessons.length} {t("dashboardHero.courses")}</span>
           </h2>
           <Link
             href="/courses"
@@ -124,7 +127,7 @@ export default function DashboardHero() {
                 : "bg-[#5A9B29] hover:bg-[#034440] text-white shadow-[#5A9B29]/20"
             }`}
           >
-            CONTINUE LEARNING
+            {t("dashboardHero.continueLearning")}
             <ArrowUpRight size={14} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
           </Link>
         </div>
@@ -134,13 +137,13 @@ export default function DashboardHero() {
           {/* Top Info Bar */}
           <div className="flex items-center justify-between md:justify-end px-1">
             <span className={`text-[10px] font-bold uppercase tracking-widest md:hidden ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-              Your Snapshot
+              {t("dashboardHero.yourSnapshot")}
             </span>
             <Link 
               href="/statistics"
               className={`text-xs font-bold flex items-center gap-1 transition-colors hover:underline ${isDark ? "text-[#B4ED7C]" : "text-[#5A9B29]"}`}
             >
-              View Statistics <ArrowRight size={14} />
+              {t("dashboardHero.viewStatistics")} <ArrowRight size={14} />
             </Link>
           </div>
 
@@ -157,7 +160,7 @@ export default function DashboardHero() {
                   {reportData ? `${progressPercent}%` : "-"}
                 </h3>
                 <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                  Progress
+                  {t("dashboardHero.progress")}
                 </p>
               </div>
             </div>
@@ -172,7 +175,7 @@ export default function DashboardHero() {
                   {reportData ? `${avgScore}%` : "-"}
                 </h3>
                 <p className={`text-[9px] font-bold uppercase tracking-wider mt-0.5 ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                  Digital Proficiency
+                  {t("dashboardHero.digitalProficiency")}
                 </p>
               </div>
             </div>
@@ -193,7 +196,7 @@ export default function DashboardHero() {
                   {reportData ? `${growthPrefix}${scoreGrowth}%` : "-"}
                 </h3>
                 <p className={`text-[10px] font-bold uppercase tracking-wider mt-0.5 ${isDark ? "text-zinc-400" : "text-slate-500"}`}>
-                  Score Growth
+                  {t("dashboardHero.scoreGrowth")}
                 </p>
               </div>
             </div>
